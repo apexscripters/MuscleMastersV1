@@ -1,0 +1,551 @@
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+local Remotes = ReplicatedStorage:FindFirstChild("Remotes") or ReplicatedStorage
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MuscleMastersV1"
+ScreenGui.Parent = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+MainFrame.Position = UDim2.new(0.5, -260, 0.5, -200)
+MainFrame.Size = UDim2.new(0, 520, 0, 400)
+MainFrame.ClipsDescendants = true
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainFrame
+
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Parent = MainFrame
+TopBar.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+TopBar.Size = UDim2.new(1, 0, 0, 40)
+
+local Title = Instance.new("TextLabel")
+Title.Parent = TopBar
+Title.Text = "Muscle Masters V1"
+Title.Font = Enum.Font.SourceSans
+Title.TextColor3 = Color3.fromRGB(180, 180, 180)
+Title.TextSize = 16
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.Size = UDim2.new(0, 200, 1, 0)
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local WindowControls = Instance.new("Frame", TopBar)
+WindowControls.Size = UDim2.new(0, 100, 1, 0)
+WindowControls.Position = UDim2.new(1, -110, 0, 0)
+WindowControls.BackgroundTransparency = 1
+
+local MinBtn = Instance.new("TextButton", WindowControls)
+MinBtn.Text = "—"
+MinBtn.Font = Enum.Font.SourceSans
+MinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+MinBtn.TextSize = 16
+MinBtn.BackgroundTransparency = 1
+MinBtn.Size = UDim2.new(0, 30, 1, 0)
+MinBtn.Position = UDim2.new(0, 0, 0, 0)
+
+local MaxBtn = Instance.new("TextButton", WindowControls)
+MaxBtn.Text = "⬜"
+MaxBtn.Font = Enum.Font.SourceSans
+MaxBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+MaxBtn.TextSize = 12
+MaxBtn.BackgroundTransparency = 1
+MaxBtn.Size = UDim2.new(0, 30, 1, 0)
+MaxBtn.Position = UDim2.new(0, 35, 0, 0)
+
+local CloseBtn = Instance.new("TextButton", WindowControls)
+CloseBtn.Text = "✕"
+CloseBtn.Font = Enum.Font.SourceSans
+CloseBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+CloseBtn.TextSize = 16
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Size = UDim2.new(0, 30, 1, 0)
+CloseBtn.Position = UDim2.new(0, 70, 0, 0)
+
+local FloatBtn = Instance.new("TextButton", ScreenGui)
+FloatBtn.Size = UDim2.new(0, 55, 0, 55)
+FloatBtn.Position = UDim2.new(0, 20, 0.4, 0)
+FloatBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+FloatBtn.Text = "🏋️"
+FloatBtn.TextSize = 24
+FloatBtn.Visible = false
+Instance.new("UICorner", FloatBtn).CornerRadius = UDim.new(0, 12)
+local FloatStroke = Instance.new("UIStroke", FloatBtn)
+FloatStroke.Color = Color3.fromRGB(60, 60, 60)
+FloatStroke.Thickness = 1.5
+
+local function setupDraggable(frame, handle)
+    local dragging = false
+    local dragInput
+    local dragStart
+    local startPos
+
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            
+            local connection
+            connection = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    connection:Disconnect()
+                end
+            end)
+        end
+    end)
+
+    handle.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+setupDraggable(MainFrame, TopBar)
+setupDraggable(FloatBtn, FloatBtn)
+
+local Sidebar = Instance.new("Frame", MainFrame)
+Sidebar.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+Sidebar.Position = UDim2.new(0, 0, 0, 40)
+Sidebar.Size = UDim2.new(0, 160, 1, -40)
+local SideLayout = Instance.new("UIListLayout", Sidebar)
+SideLayout.Padding = UDim.new(0, 2)
+SideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local Container = Instance.new("Frame", MainFrame)
+Container.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+Container.Position = UDim2.new(0, 160, 0, 40)
+Container.Size = UDim2.new(1, -160, 1, -40)
+
+local function criarPagina(tituloNome)
+    local f = Instance.new("ScrollingFrame", Container)
+    f.Size = UDim2.new(1, 0, 1, 0)
+    f.BackgroundTransparency = 1
+    f.Visible = false
+    f.CanvasSize = UDim2.new(0, 0, 0, 550)
+    f.ScrollBarThickness = 0
+    
+    local pad = Instance.new("UIPadding", f)
+    pad.PaddingLeft = UDim.new(0, 20)
+    pad.PaddingTop = UDim.new(0, 20)
+    pad.PaddingRight = UDim.new(0, 20)
+
+    local tl = Instance.new("TextLabel", f)
+    tl.Size = UDim2.new(1, 0, 0, 40)
+    tl.Text = tituloNome
+    tl.Font = Enum.Font.SourceSansBold
+    tl.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tl.TextSize = 28
+    tl.TextXAlignment = Enum.TextXAlignment.Left
+    tl.BackgroundTransparency = 1
+
+    local l = Instance.new("UIListLayout", f)
+    l.Padding = UDim.new(0, 10)
+    return f
+end
+
+local P_Main = criarPagina("Main")
+local P_Player = criarPagina("Jogador")
+local P_Misc = criarPagina("Outros")
+local P_Calc = criarPagina("Calculadora")
+local P_Settings = criarPagina("Configurações")
+
+local _G_States = {
+    AutoFarm = false, FastAutoFarm = false, AutoGlitch = false, FastAutoGlitch = false,
+    AutoKill = false, AutoPunch = false, AuraKill = false, TargetKillActive = false,
+    AutoEggs = false, AutoDelete = false, AutoSpin = false, AutoRebirths = false,
+    AntiAFK = true, AutoSize1 = false
+}
+
+local TargetPlayerSelected = ""
+local CurrentEggSelected = "Rare"
+
+local function criarToggle(aba, texto, estadoKey, subtexto, callback)
+    local f = Instance.new("Frame", aba)
+    f.Size = UDim2.new(1, 0, 0, 55)
+    f.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
+
+    local lbl = Instance.new("TextLabel", f)
+    lbl.Size = subtexto and UDim2.new(0, 250, 0, 30) or UDim2.new(0, 250, 1, 0)
+    lbl.Position = UDim2.new(0, 15, 0, subtexto and 4 or 0)
+    lbl.Text = texto
+    lbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+    lbl.Font = Enum.Font.SourceSans
+    lbl.TextSize = 15
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.BackgroundTransparency = 1
+
+    if subtexto then
+        local sub = Instance.new("TextLabel", f)
+        sub.Size = UDim2.new(0, 250, 0, 20)
+        sub.Position = UDim2.new(0, 15, 0, 28)
+        sub.Text = subtexto
+        sub.TextColor3 = Color3.fromRGB(120, 120, 120)
+        sub.Font = Enum.Font.SourceSans
+        sub.TextSize = 12
+        sub.TextXAlignment = Enum.TextXAlignment.Left
+        sub.BackgroundTransparency = 1
+    end
+
+    local switch = Instance.new("TextButton", f)
+    switch.Size = UDim2.new(0, 42, 0, 22)
+    switch.Position = UDim2.new(1, -57, 0.5, -11)
+    switch.Text = ""
+    switch.BackgroundColor3 = _G_States[estadoKey] and Color3.fromRGB(80, 80, 80) or Color3.fromRGB(45, 45, 45)
+    local swCorner = Instance.new("UICorner", switch)
+    swCorner.CornerRadius = UDim.new(1, 0)
+
+    local circle = Instance.new("Frame", switch)
+    circle.Size = UDim2.new(0, 16, 0, 16)
+    circle.Position = _G_States[estadoKey] and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
+    circle.BackgroundColor3 = _G_States[estadoKey] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 150)
+    Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
+
+    switch.MouseButton1Click:Connect(function()
+        _G_States[estadoKey] = not _G_States[estadoKey]
+        
+        local targetPos = _G_States[estadoKey] and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
+        local targetColor = _G_States[estadoKey] and Color3.fromRGB(80, 80, 80) or Color3.fromRGB(45, 45, 45)
+        local circleColor = _G_States[estadoKey] and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 150)
+        
+        TweenService:Create(circle, UDimTime or TweenInfo.new(0.15), {Position = targetPos, BackgroundColor3 = circleColor}):Play()
+        TweenService:Create(switch, UDimTime or TweenInfo.new(0.15), {BackgroundColor3 = targetColor}):Play()
+        
+        if callback then callback(_G_States[estadoKey]) end
+    end)
+end
+
+local function teleport(x, y, z)
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local rootPart = character:WaitForChild("HumanoidRootPart", 5)
+    if rootPart then rootPart.CFrame = CFrame.new(x, y + 3, z) end
+end
+
+local function equiparFerramenta()
+    local character = LocalPlayer.Character
+    if character and not character:FindFirstChildOfClass("Tool") then
+        local tool = LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+        if tool then character.Humanoid:EquipTool(tool) end
+    end
+end
+
+criarToggle(P_Main, "Auto Farm", "AutoFarm", nil)
+criarToggle(P_Main, "Auto Farm Rápido", "FastAutoFarm", nil)
+criarToggle(P_Main, "Auto Glitch", "AutoGlitch", nil)
+criarToggle(P_Main, "Auto Glitch V2 Fast", "FastAutoGlitch", "Requer 1M de Resistência")
+criarToggle(P_Main, "Auto Renascimento", "AutoRebirths", nil)
+
+task.spawn(function()
+    while true do
+        if _G_States.AutoFarm or _G_States.FastAutoFarm then
+            pcall(function()
+                equiparFerramenta()
+                local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                if tool then tool:Activate() end
+                
+                local clickRemote = Remotes:FindFirstChild("Punch") or Remotes:FindFirstChild("Click") or Remotes:FindFirstChild("MuscleEvent")
+                if clickRemote then clickRemote:FireServer("punch", "rightHand") end
+            end)
+        end
+        task.wait(_G_States.FastAutoFarm and 0.02 or 0.2)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if _G_States.AutoGlitch then
+            teleport(2712, 6, 300) task.wait(0.4)
+            teleport(2691, 6, 300) task.wait(0.4)
+        elseif _G_States.FastAutoGlitch then
+            teleport(2712, 6, 300) task.wait(0.08)
+            teleport(2691, 6, 300) task.wait(0.08)
+        else
+            task.wait(1)
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if _G_States.AutoRebirths then
+            pcall(function() (Remotes:FindFirstChild("Rebirth") or Remotes:FindFirstChild("AddRebirth")):FireServer() end)
+        end
+        task.wait(4)
+    end
+end)
+
+criarToggle(P_Player, "Matar Todos (Auto Kill)", "AutoKill", nil)
+criarToggle(P_Player, "Soco Infinito", "AutoPunch", nil)
+criarToggle(P_Player, "Aura de Dano (Aura Kill)", "AuraKill", nil)
+criarToggle(P_Player, "Atacar Alvo Focado", "TargetKillActive", nil)
+
+local TargetBox = Instance.new("TextBox", P_Player)
+TargetBox.Size = UDim2.new(1, 0, 0, 40)
+TargetBox.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+TargetBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+TargetBox.Text = " Inserir nome do jogador..."
+TargetBox.Font = Enum.Font.SourceSans
+TargetBox.TextSize = 14
+TargetBox.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", TargetBox).CornerRadius = UDim.new(0, 8)
+
+TargetBox.FocusLost:Connect(function()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Name:lower():sub(1, #TargetBox.Text) == TargetBox.Text:lower() or p.DisplayName:lower():sub(1, #TargetBox.Text) == TargetBox.Text:lower() then
+            TargetPlayerSelected = p.Name
+            TargetBox.Text = " 🎯 Alvo Selecionado: " .. p.DisplayName
+            break
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.04)
+        local char = LocalPlayer.Character
+        local rHand = char and (char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm"))
+        local lHand = char and (char:FindFirstChild("LeftHand") or char:FindFirstChild("Left Arm"))
+        
+        if char and (_G_States.AutoKill or _G_States.AuraKill or _G_States.TargetKillActive or _G_States.AutoPunch) then
+            pcall(function()
+                local punchEv = Remotes:FindFirstChild("Punch") or Remotes:FindFirstChild("MuscleEvent")
+                if punchEv then 
+                    punchEv:FireServer("punch", "rightHand")
+                    punchEv:FireServer("punch", "leftHand")
+                end
+                
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character.Humanoid.Health > 0 then
+                        local root = p.Character.HumanoidRootPart
+                        local dist = (char.HumanoidRootPart.Position - root.Position).Magnitude
+                        
+                        local deveAtacar = false
+                        if _G_States.AutoKill then deveAtacar = true
+                        elseif _G_States.AuraKill and dist <= 30 then deveAtacar = true
+                        elseif _G_States.TargetKillActive and p.Name == TargetPlayerSelected then deveAtacar = true
+                        end
+                        
+                        if deveAtacar and rHand and lHand then
+                            firetouchinterest(rHand, root, 1)
+                            firetouchinterest(lHand, root, 1)
+                            firetouchinterest(rHand, root, 0)
+                            firetouchinterest(lHand, root, 0)
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+criarToggle(P_Misc, "Abrir Ovos Automaticamente", "AutoEggs", nil)
+criarToggle(P_Misc, "Excluir Pets Comuns/Incomuns", "AutoDelete", nil)
+criarToggle(P_Misc, "Girar Roleta Grátis", "AutoSpin", nil)
+
+local EggBox = Instance.new("TextBox", P_Misc)
+EggBox.Size = UDim2.new(1, 0, 0, 40)
+EggBox.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+EggBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+EggBox.Text = " Nome do Ovo (Ex: Master, Mythic)"
+EggBox.Font = Enum.Font.SourceSans
+EggBox.TextSize = 14
+EggBox.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", EggBox).CornerRadius = UDim.new(0, 8)
+EggBox.FocusLost:Connect(function() CurrentEggSelected = EggBox.Text end)
+
+task.spawn(function()
+    while true do
+        if _G_States.AutoEggs then
+            pcall(function()
+                local eggRemote = Remotes:FindFirstChild("BuyEgg") or Remotes:FindFirstChild("OpenEgg")
+                if eggRemote then eggRemote:InvokeServer(CurrentEggSelected) end
+            end)
+        end
+        if _G_States.AutoDelete then
+            pcall(function()
+                local petsFolder = LocalPlayer:FindFirstChild("petsFolder") or LocalPlayer:FindFirstChild("Pets")
+                if petsFolder then
+                    for _, pet in ipairs(petsFolder:GetChildren()) do
+                        if pet:FindFirstChild("Rarity") and (pet.Rarity.Value == "Common" or pet.Rarity.Value == "Uncommon") then
+                            local delRemote = Remotes:FindFirstChild("DeletePet") or Remotes:FindFirstChild("TrashPet")
+                            if delRemote then delRemote:FireServer(pet.Name) end
+                        end
+                    end
+                end
+            end)
+        end
+        if _G_States.AutoSpin then
+            pcall(function() (Remotes:FindFirstChild("Spin") or Remotes:FindFirstChild("SpinWheel")):FireServer() end)
+        end
+        task.wait(0.5)
+    end
+end)
+
+local Display = Instance.new("TextLabel", P_Calc)
+Display.Size = UDim2.new(1, 0, 0, 45)
+Display.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+Display.Text = "0"
+Display.TextColor3 = Color3.fromRGB(255, 255, 255)
+Display.Font = Enum.Font.SourceSans
+Display.TextSize = 24
+Display.TextXAlignment = Enum.TextXAlignment.Right
+local DispPad = Instance.new("UIPadding", Display)
+DispPad.PaddingRight = UDim.new(0, 15)
+Instance.new("UICorner", Display).CornerRadius = UDim.new(0, 6)
+
+local CalcGrid = Instance.new("Frame", P_Calc)
+CalcGrid.Size = UDim2.new(1, 0, 0, 220)
+CalcGrid.BackgroundTransparency = 1
+local CGrid = Instance.new("UIGridLayout", CalcGrid)
+CGrid.CellSize = UDim2.new(0, 70, 0, 38)
+CGrid.CellPadding = UDim2.new(0, 6, 0, 6)
+
+local calcButtons = {"C", "√", "^", "÷", "7", "8", "9", "×", "4", "5", "6", "-", "1", "2", "3", "+", "0", ".", "(", "="}
+
+local function avaliarExpressao(expr)
+    expr = expr:gsub("×", "*"):gsub("÷", "/")
+    expr = expr:gsub("√([%d%.]+)", "math.sqrt(%1)")
+    expr = expr:gsub("([%d%.]+)%^([%d%.]+)", "math.pow(%1,%2)")
+    local func = loadstring("return " .. expr)
+    if func then
+        local sucesso, resultado = pcall(func)
+        if sucesso then return tostring(resultado) end
+    end
+    return "Erro"
+end
+
+for _, txt in ipairs(calcButtons) do
+    local b = Instance.new("TextButton", CalcGrid)
+    b.Text = txt
+    b.Font = Enum.Font.SourceSansBold
+    b.TextSize = 16
+    b.TextColor3 = Color3.fromRGB(230, 230, 230)
+    b.BackgroundColor3 = (txt == "=" and Color3.fromRGB(40, 70, 50)) or (txt == "C" and Color3.fromRGB(90, 40, 40)) or Color3.fromRGB(28, 28, 28)
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    
+    b.MouseButton1Click:Connect(function()
+        if txt == "C" then Display.Text = "0"
+        elseif txt == "=" then
+            if Display.Text ~= "0" then Display.Text = avaliarExpressao(Display.Text) end
+        else
+            if Display.Text == "0" or Display.Text == "Erro" then Display.Text = txt else Display.Text = Display.Text .. txt end
+        end
+    end)
+end
+
+criarToggle(P_Settings, "Anti-AFK Automático", "AntiAFK", nil)
+criarToggle(P_Settings, "Prender no Tamanho Mínimo (Size 1)", "AutoSize1", nil)
+
+task.spawn(function()
+    while true do
+        if _G_States.AutoSize1 then
+            pcall(function()
+                local sizeRemote = Remotes:FindFirstChild("ChangeSize") or Remotes:FindFirstChild("SizeRemote")
+                if sizeRemote then sizeRemote:InvokeServer("changeSize", 1) end
+            end)
+        end
+        task.wait(1)
+    end
+end)
+
+LocalPlayer.Idled:Connect(function()
+    if _G_States.AntiAFK then
+        local virtualUser = game:GetService("VirtualUser")
+        virtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        task.wait(1)
+        virtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    end
+end)
+
+local function alternarAba(abaAtiva, botaoAtivo)
+    P_Main.Visible = false
+    P_Player.Visible = false
+    P_Misc.Visible = false
+    P_Calc.Visible = false
+    P_Settings.Visible = false
+    abaAtiva.Visible = true
+    
+    for _, btn in ipairs(Sidebar:GetChildren()) do
+        if btn:IsA("TextButton") then
+            btn.BackgroundColorTransparency = 1
+            btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+            local indicator = btn:FindFirstChild("Indicator")
+            if indicator then indicator.Visible = false end
+        end
+    end
+    
+    botaoAtivo.BackgroundColorTransparency = 0.9
+    botaoAtivo.TextColor3 = Color3.fromRGB(255, 255, 255)
+    local activeIndicator = botaoAtivo:FindFirstChild("Indicator")
+    if activeIndicator then activeIndicator.Visible = true end
+end
+
+local function criarBotaoMenu(texto, pagina, icone)
+    local btn = Instance.new("TextButton", Sidebar)
+    btn.Size = UDim2.new(0, 140, 0, 40)
+    btn.Text = "   " .. icone .. "  " .. texto
+    btn.Font = Enum.Font.SourceSans
+    btn.TextSize = 14
+    btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    btn.BackgroundTransparency = 1
+    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local bCorner = Instance.new("UICorner", btn)
+    bCorner.CornerRadius = UDim.new(0, 6)
+    
+    local indicator = Instance.new("Frame", btn)
+    indicator.Name = "Indicator"
+    indicator.Size = UDim2.new(0, 3, 0, 16)
+    indicator.Position = UDim2.new(0, 5, 0.5, -8)
+    indicator.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+    indicator.Visible = false
+    Instance.new("UICorner", indicator)
+    
+    btn.MouseButton1Click:Connect(function() alternarAba(pagina, btn) end)
+    return btn
+end
+
+local btnMain = criarBotaoMenu("Main", P_Main, "🌱")
+local btnPlayer = criarBotaoMenu("Jogador", P_Player, "⚔️")
+local btnMisc = criarBotaoMenu("Outros", P_Misc, "⭐")
+local btnCalc = criarBotaoMenu("Calculadora", P_Calc, "🧮")
+local btnSettings = criarBotaoMenu("Configurações", P_Settings, "⚙️")
+
+alternarAba(P_Main, btnMain)
+
+MinBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    FloatBtn.Visible = true
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+FloatBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = true
+    FloatBtn.Visible = false
+end)
