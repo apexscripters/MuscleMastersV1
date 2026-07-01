@@ -302,22 +302,14 @@ task.spawn(function()
     end
 end)
 
-local function checkAndHideGui(gui)
-    if gui:IsA("TextLabel") or gui:IsA("ImageLabel") or gui:IsA("Frame") then
-        if gui:IsDescendantOf(frame) or gui.Name == "ApexKillGUI" then return end
-        local nameLower = gui.Name:lower()
-        local textLower = gui:IsA("TextLabel") and gui.Text:lower() or ""
-        
-        if nameLower:find("push") or nameLower:find("gain") or nameLower:find("popup") or nameLower:find("clone") or 
-           nameLower:find("notification") or textLower:find("durabilidade") or textLower:find("durability") or 
-           textLower:find("+") or textLower:find("kill") or textLower:find("ganhou") then
-            
-            gui.Visible = false
-            if gui:IsA("TextLabel") then gui.TextTransparency = 1 end
-            if gui:IsA("ImageLabel") then gui.ImageTransparency = 1 end
+local function hideAllFrames(bool)
+    for _, obj in pairs(ReplicatedStorage:GetChildren()) do
+        if obj.Name:match("Frame$") then
+            obj.Visible = not bool
         end
     end
 end
+hideAllFrames(true)
 
 local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 for _, g in pairs(playerGui:GetDescendants()) do checkAndHideGui(g) end
@@ -334,6 +326,15 @@ local function cleanPart(v)
         v.Transparency = 1
     end
 end
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
+local RunService = game:GetService("RunService")
+
+game:GetService("Players").LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
 
 local function optimizePerformance()
     Settings.Rendering.QualityLevel = Enum.QualityLevel.Level01
@@ -367,6 +368,17 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
+_G.AutoSpinWheel = true
+spawn(function()
+    while _G.AutoSpinWheel do
+        local remote = ReplicatedStorage:FindFirstChild("rEvents") and ReplicatedStorage.rEvents:FindFirstChild("openFortuneWheelRemote")
+        if remote then
+            remote:InvokeServer("openFortuneWheel", ReplicatedStorage.fortuneWheelChances["Fortune Wheel"])
+        end
+        task.wait(1) 
+    end
+end)
+
 local function initCharacter()
     task.wait(0.2)
     teleportToKing()
@@ -380,36 +392,7 @@ LocalPlayer.CharacterAdded:Connect(function()
 end)
 
 task.spawn(optimizePerformance)
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualUser = game:GetService("VirtualUser")
-local RunService = game:GetService("RunService")
 
-game:GetService("Players").LocalPlayer.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
-end)
-
-local function hideAllFrames(bool)
-    for _, obj in pairs(ReplicatedStorage:GetChildren()) do
-        if obj.Name:match("Frame$") then
-            obj.Visible = not bool
-        end
-    end
-end
-hideAllFrames(true)
-
-_G.AutoSpinWheel = true
-spawn(function()
-    while _G.AutoSpinWheel do
-        local remote = ReplicatedStorage:FindFirstChild("rEvents") and ReplicatedStorage.rEvents:FindFirstChild("openFortuneWheelRemote")
-        if remote then
-            remote:InvokeServer("openFortuneWheel", ReplicatedStorage.fortuneWheelChances["Fortune Wheel"])
-        end
-        task.wait(1) 
-    end
-end)
-
---Camarero 
 local function ExecuteRealServerHop()
     local nextCursor = ""
     local serverFound = false
