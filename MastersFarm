@@ -36,6 +36,19 @@ LocalPlayer.Idled:Connect(function()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
+-- Auto Equip ProteinEgg (Integrado)
+task.spawn(function()
+    while true do
+        task.wait(2)
+        pcall(function()
+            local egg = LocalPlayer.Backpack:FindFirstChild("ProteinEgg")
+            if egg then
+                egg.Parent = LocalPlayer.Character
+            end
+        end)
+    end
+end)
+
 -- Hide UI elements
 local function hideAllFrames(bool)
     for _, obj in pairs(ReplicatedStorage:GetChildren()) do
