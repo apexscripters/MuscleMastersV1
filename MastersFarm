@@ -1,13 +1,84 @@
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local TS = game:GetService("TeleportService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
 local RunService = game:GetService("RunService")
+local TS = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
+local CoreGui = game:GetService("CoreGui")
 local Settings = settings()
 
+-- Auto Rejoin
+local function autoRejoin()
+    local promptOverlay = CoreGui:FindFirstChild("RobloxPromptGui") and CoreGui.RobloxPromptGui:FindFirstChild("promptOverlay")
+    if promptOverlay then
+        promptOverlay.ChildAdded:Connect(function(child)
+            if child.Name == 'ErrorPrompt' then
+                task.wait(2)
+                TS:Teleport(game.PlaceId, LocalPlayer)
+            end
+        end)
+    end
+    GuiService.ErrorMessageChanged:Connect(function()
+        task.wait(2)
+        TS:Teleport(game.PlaceId, LocalPlayer)
+    end)
+end
+task.spawn(autoRejoin)
+
+-- Anti-AFK
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+-- Hide UI elements
+local function hideAllFrames(bool)
+    for _, obj in pairs(ReplicatedStorage:GetChildren()) do
+        if obj.Name:match("Frame$") then
+            obj.Visible = not bool
+        end
+    end
+end
+hideAllFrames(true)
+
+-- Fortune Wheel
+_G.AutoSpinWheel = true
+task.spawn(function()
+    while _G.AutoSpinWheel do
+        local remote = ReplicatedStorage:FindFirstChild("rEvents") and ReplicatedStorage.rEvents:FindFirstChild("openFortuneWheelRemote")
+        if remote then
+            remote:InvokeServer("openFortuneWheel", ReplicatedStorage.fortuneWheelChances["Fortune Wheel"])
+        end
+        task.wait(1) 
+    end
+end)
+
+-- Auto Size
+task.spawn(function()
+    while task.wait(0.5) do
+        pcall(function()
+            local args = {"changeSize", 0/0}
+            local remote = ReplicatedStorage:FindFirstChild("rEvents") and ReplicatedStorage.rEvents:FindFirstChild("changeSpeedSizeRemote")
+            if remote then
+                remote:InvokeServer(unpack(args))
+            end
+        end)
+    end
+end)
+
+-- Load external script
+task.spawn(function()
+    pcall(function()
+        loadstring(game:HttpGet("https://pastebin.com/raw/AxVHmk1i"))()
+    end)
+end)
+
+-- Setup GUI
 if LocalPlayer.PlayerGui:FindFirstChild("ApexKillGUI") then
     LocalPlayer.PlayerGui["ApexKillGUI"]:Destroy()
 end
@@ -84,6 +155,7 @@ killsLabel.TextXAlignment = Enum.TextXAlignment.Left
 killsLabel.Text = "0 (0K)"
 killsLabel.Parent = frame
 
+-- Time and Stats updates
 local cStart = os.clock()
 RunService.Heartbeat:Connect(function()
     local cElapsed = os.clock() - cStart
@@ -118,6 +190,7 @@ task.spawn(function()
     end
 end)
 
+-- Utils
 local function getCharacter() 
     return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait() 
 end
@@ -143,11 +216,9 @@ local function teleportToKing()
     local root = getRoot()
     if not root then return end
     local targetCFrame = CFrame.new(-8750, 121, -5859)
-    
     root.Velocity = Vector3.zero
     root.AssemblyLinearVelocity = Vector3.zero
     root.CFrame = targetCFrame
-    
     local bp = root:FindFirstChild("MaTeUsLock") or Instance.new("BodyPosition")
     bp.Name = "MaTeUsLock"
     bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
@@ -155,145 +226,88 @@ local function teleportToKing()
     bp.Parent = root
 end
 
-local blockedAnimations = {
-    ["rbxassetid://3638729053"] = true,
-    ["rbxassetid://3638767427"] = true,
-}
+-- Global Kill Loop
+task.spawn(function()
+    while true do
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        
+        if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 and root then
+            local tool = char:FindFirstChildOfClass("Tool") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+            if tool then
+                if tool.Parent ~= char then tool.Parent = char end
+                if tool:FindFirstChild("attackTime") then tool.attackTime.Value = 0 end
+                tool:Activate()
+            end
 
+            local rightHand = char:FindFirstChild("RightHand") or char:FindFirstChild("RightArm")
+            local leftHand = char:FindFirstChild("LeftHand") or char:FindFirstChild("LeftArm")
+            
+            for _, target in ipairs(Players:GetPlayers()) do
+                if target ~= LocalPlayer and target.Character then
+                    local tRoot = target.Character:FindFirstChild("HumanoidRootPart")
+                    local tHum = target.Character:FindFirstChild("Humanoid")
+                    
+                    if tRoot and tHum and tHum.Health > 0 then
+                        local partsToHit = {"HumanoidRootPart", "Head", "Torso", "UpperTorso"}
+                        pcall(function()
+                            for _, partName in ipairs(partsToHit) do
+                                local targetPart = target.Character:FindFirstChild(partName)
+                                if targetPart then
+                                    if rightHand then
+                                        firetouchinterest(rightHand, targetPart, 0)
+                                        firetouchinterest(rightHand, targetPart, 1)
+                                    end
+                                    if leftHand then
+                                        firetouchinterest(leftHand, targetPart, 0)
+                                        firetouchinterest(leftHand, targetPart, 1)
+                                    end
+                                end
+                            end
+                        end)
+                    end
+                end
+            end
+        end
+        task.wait(0.01)
+    end
+end)
+
+-- Animations and Optimization
+local blockedAnimations = {["rbxassetid://3638729053"] = true, ["rbxassetid://3638767427"] = true}
 local function setupAnimationBlocking()
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("Humanoid") then return end
     local humanoid = char:FindFirstChild("Humanoid")
-
     for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
         if track.Animation then
             local animId = track.Animation.AnimationId
             local animName = track.Name:lower()
-            if blockedAnimations[animId] or animName:match("punch") or animName:match("attack") or animName:match("right") then
-                track:Stop()
-            end
+            if blockedAnimations[animId] or animName:match("punch") or animName:match("attack") or animName:match("right") then track:Stop() end
         end
     end
-
-    if _G.AnimBlockConnection then _G.AnimBlockConnection:Disconnect() end
-    _G.AnimBlockConnection = humanoid.AnimationPlayed:Connect(function(track)
-        if track.Animation then
-            local animId = track.Animation.AnimationId
-            local animName = track.Name:lower()
-            if blockedAnimations[animId] or animName:match("punch") or animName:match("attack") or animName:match("right") then
-                track:Stop()
-            end
-        end
-    end)
 end
 
 local function overrideToolActivation()
     local function processTool(tool)
-        if tool and (tool.Name == "Punch" or tool.Name:match("Attack") or tool.Name:match("Right")) then
+        if tool and (tool.Name:lower():find("punch") or tool.Name:lower():find("attack") or tool.Name:lower():find("sword") or tool.Name:lower():find("bat")) then
             if not tool:GetAttribute("ActivatedOverride") then
                 tool:SetAttribute("ActivatedOverride", true)
-
-                local connection = tool.Activated:Connect(function()
+                tool.Activated:Connect(function()
                     task.wait(0.05)
                     local char = LocalPlayer.Character
                     if char and char:FindFirstChild("Humanoid") then
                         for _, track in pairs(char.Humanoid:GetPlayingAnimationTracks()) do
-                            if track.Animation then
-                                if blockedAnimations[track.Animation.AnimationId] or track.Name:lower():match("punch") then
-                                    track:Stop()
-                                end
-                            end
+                            if track.Animation and (blockedAnimations[track.Animation.AnimationId] or track.Name:lower():match("punch")) then track:Stop() end
                         end
                     end
                 end)
-
-                if not _G.ToolConnections then _G.ToolConnections = {} end
-                _G.ToolConnections[tool] = connection
             end
         end
     end
-    
     for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do processTool(tool) end
-    local char = LocalPlayer.Character
-    if char then
-        for _, tool in pairs(char:GetChildren()) do
-            if tool:IsA("Tool") then processTool(tool) end
-        end
-    end
-
-    if _G.BackpackAddedConnection then _G.BackpackAddedConnection:Disconnect() end
-    _G.BackpackAddedConnection = LocalPlayer.Backpack.ChildAdded:Connect(function(child)
-        if child:IsA("Tool") then task.wait(0.1) processTool(child) end
-    end)
+    LocalPlayer.Backpack.ChildAdded:Connect(function(child) if child:IsA("Tool") then processTool(child) end end)
 end
-
-task.spawn(function()
-    while true do
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-            
-            for _, track in pairs(char.Humanoid:GetPlayingAnimationTracks()) do
-                if track.Animation then
-                    local animId = track.Animation.AnimationId
-                    local animName = track.Name:lower()
-                    if blockedAnimations[animId] or animName:match("punch") or animName:match("attack") or animName:match("right") then
-                        track:Stop()
-                    end
-                end
-            end
-
-            local punchInBackpack = LocalPlayer.Backpack:FindFirstChild("Punch")
-            local punchInCharacter = char:FindFirstChild("Punch")
-            
-            if punchInBackpack then
-                punchInBackpack.Parent = char
-                if punchInBackpack:FindFirstChild("attackTime") then
-                    punchInBackpack.attackTime.Value = 0
-                end
-            end
-            
-            if punchInCharacter then
-                if punchInCharacter:FindFirstChild("attackTime") then
-                    punchInCharacter.attackTime.Value = 0
-                end
-                punchInCharacter:Activate()
-            end
-            
-            local tool = char:FindFirstChildOfClass("Tool")
-            if tool and (tool.Name:lower():find("punch") or tool.Name:lower():find("attack")) then
-                pcall(function()
-                    for i = 1, 3 do 
-                        tool:Activate()
-                    end
-                end)
-            end
-
-            local rightHand = char:FindFirstChild("RightHand")
-            local leftHand = char:FindFirstChild("LeftHand")
-
-            if rightHand and leftHand then
-                for _, target in ipairs(Players:GetPlayers()) do
-                    if target ~= LocalPlayer and target.Character then
-                        local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
-                        local targetHumanoid = target.Character:FindFirstChild("Humanoid")
-                        
-                        if targetRoot and targetHumanoid and targetHumanoid.Health > 0 then
-                            pcall(function()
-                                for i = 1, 3 do 
-                                    firetouchinterest(rightHand, targetRoot, 1)
-                                    firetouchinterest(leftHand, targetRoot, 1)
-                                    firetouchinterest(rightHand, targetRoot, 0)
-                                    firetouchinterest(leftHand, targetRoot, 0)
-                                end
-                            end)
-                        end
-                    end
-                end
-            end
-        end
-        task.wait(0.02)
-    end
-end)
 
 task.spawn(function()
     while true do
@@ -302,27 +316,7 @@ task.spawn(function()
     end
 end)
 
-local function checkAndHideGui(gui)
-    if gui:IsA("TextLabel") or gui:IsA("ImageLabel") or gui:IsA("Frame") then
-        if gui:IsDescendantOf(frame) or gui.Name == "ApexKillGUI" then return end
-        local nameLower = gui.Name:lower()
-        local textLower = gui:IsA("TextLabel") and gui.Text:lower() or ""
-        
-        if nameLower:find("push") or nameLower:find("gain") or nameLower:find("popup") or nameLower:find("clone") or 
-           nameLower:find("notification") or textLower:find("durabilidade") or textLower:find("durability") or 
-           textLower:find("+") or textLower:find("kill") or textLower:find("ganhou") then
-            
-            gui.Visible = false
-            if gui:IsA("TextLabel") then gui.TextTransparency = 1 end
-            if gui:IsA("ImageLabel") then gui.ImageTransparency = 1 end
-        end
-    end
-end
-
-local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-for _, g in pairs(playerGui:GetDescendants()) do checkAndHideGui(g) end
-playerGui.DescendantAdded:Connect(checkAndHideGui)
-
+-- Performance optimization
 local function cleanPart(v)
     if v:IsA("BasePart") or v:IsA("MeshPart") or v:IsA("UnionOperation") then
         v.Material = Enum.Material.Plastic
@@ -342,137 +336,57 @@ local function optimizePerformance()
     Lighting.ClockTime = 5.5
     Lighting.EnvironmentDiffuseScale = 0
     Lighting.EnvironmentSpecularScale = 0
-
     if Lighting:FindFirstChild("Sky") then Lighting.Sky:Destroy() end
     for _, v in pairs(Workspace:GetDescendants()) do cleanPart(v) end
     Workspace.DescendantAdded:Connect(cleanPart)
 end
+task.spawn(optimizePerformance)
 
-task.spawn(function()
-    while true do
-        Lighting.GlobalShadows = false
-        Settings.Rendering.QualityLevel = Enum.QualityLevel.Level01
-        task.wait(5)
-    end
-end)
-
-local toggled = true
+-- Chat Toggle
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.F then
-        toggled = not toggled
-        if playerGui:FindFirstChild("Chat") then
-            playerGui.Chat.Frame.Visible = toggled
+        local chat = LocalPlayer.PlayerGui:FindFirstChild("Chat")
+        if chat and chat:FindFirstChild("Frame") then chat.Frame.Visible = not chat.Frame.Visible end
+    end
+end)
+
+-- Server Hopping
+task.spawn(function()
+    while true do
+        task.wait(45)
+        local nextCursor = ""
+        local serverFound = false
+        while not serverFound do
+            local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
+            if nextCursor ~= "" then url = url .. "&cursor=" .. nextCursor end
+            local success, result = pcall(function() return game:HttpGet(url) end)
+            if success and result then
+                local decoded = HttpService:JSONDecode(result)
+                if decoded and decoded.data then
+                    local list = decoded.data
+                    for i = #list, 2, -1 do local j = math.random(i); list[i], list[j] = list[j], list[i] end
+                    for _, server in ipairs(list) do
+                        if server.id ~= game.JobId and server.playing and server.maxPlayers and server.playing < server.maxPlayers and server.playing >= 5 then
+                            serverFound = true
+                            pcall(function() TS:TeleportToPlaceInstance(game.PlaceId, server.id, LocalPlayer) end)
+                            task.wait(2)
+                        end
+                    end
+                    if decoded.nextPageCursor then nextCursor = decoded.nextPageCursor else break end
+                else break end
+            else break end
+            task.wait(1)
         end
     end
 end)
 
+-- Initialization
 local function initCharacter()
     task.wait(0.2)
     teleportToKing()
     setupAnimationBlocking()
     overrideToolActivation()
 end
-
 task.spawn(initCharacter)
-LocalPlayer.CharacterAdded:Connect(function()
-    initCharacter()
-end)
-
-task.spawn(optimizePerformance)
-
-local function ExecuteRealServerHop()
-    local nextCursor = ""
-    local serverFound = false
-    
-    while not serverFound do
-        local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
-        if nextCursor ~= "" then url = url .. "&cursor=" .. nextCursor end
-        
-        local success, result = pcall(function() return game:HttpGet(url) end)
-        if success and result then
-            local decoded = HttpService:JSONDecode(result)
-            if decoded and decoded.data then
-                local list = decoded.data
-                for i = #list, 2, -1 do
-                    local j = math.random(i)
-                    list[i], list[j] = list[j], list[i]
-                end
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualUser = game:GetService("VirtualUser")
-local RunService = game:GetService("RunService")
-
-game:GetService("Players").LocalPlayer.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
-end)
-
-local function hideAllFrames(bool)
-    for _, obj in pairs(ReplicatedStorage:GetChildren()) do
-        if obj.Name:match("Frame$") then
-            obj.Visible = not bool
-        end
-    end
-end
-hideAllFrames(true)
-
-_G.AutoSpinWheel = true
-spawn(function()
-    while _G.AutoSpinWheel do
-        local remote = ReplicatedStorage:FindFirstChild("rEvents") and ReplicatedStorage.rEvents:FindFirstChild("openFortuneWheelRemote")
-        if remote then
-            remote:InvokeServer("openFortuneWheel", ReplicatedStorage.fortuneWheelChances["Fortune Wheel"])
-        end
-        task.wait(1) 
-    end
-end)
-
-local gui = game.CoreGui:FindFirstChild("SuaGuiNome") 
-if gui then
-    local border = Instance.new("UIStroke", gui)
-    border.Thickness = 3
-    spawn(function()
-        while task.wait() do
-            for i = 0, 1, 0.01 do
-                border.Color = Color3.fromHSV(i, 1, 1)
-                task.wait(0.05)
-            end
-        end
-    end)
-end
-
-
-local function loadDeadHit()
-    loadstring(game:HttpGet("https://pastebin.com/raw/AxVHmk1i"))()
-end
-loadDeadHit()
-
-Killer:AddButton("Size NaN", function()
-    ReplicatedStorage.rEvents.changeSpeedSizeRemote:InvokeServer("changeSize", 0/0)
-end)
-
-                for _, server in ipairs(list) do
-                    if server.id ~= game.JobId and server.playing and server.maxPlayers then
-                        if server.playing < server.maxPlayers and server.playing >= 5 then
-                            serverFound = true
-                            pcall(function() TS:TeleportToPlaceInstance(game.PlaceId, server.id, LocalPlayer) end)
-                            task.wait(2)
-                            if not serverFound then break end
-                        end
-                    end
-                end
-                if decoded.nextPageCursor then nextCursor = decoded.nextPageCursor else break end
-            else break end
-        else break end
-        task.wait(1)
-    end
-    if not serverFound then pcall(function() TS:Teleport(game.PlaceId, LocalPlayer) end) end
-end
-
-task.spawn(function()
-    while true do
-        task.wait(45)
-        ExecuteRealServerHop()
-    end
-end)
+LocalPlayer.CharacterAdded:Connect(initCharacter)
