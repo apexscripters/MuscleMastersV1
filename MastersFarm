@@ -13,7 +13,6 @@ local Settings = settings()
 
 -- Estado Global do Brawl
 local isInBrawlArena = false
-local brawlFinished = false
 
 --Anti AFK
 LocalPlayer.Idled:Connect(function()
@@ -68,7 +67,7 @@ end
 for _, g in pairs(playerGui:GetDescendants()) do checkAndHideGui(g) end
 playerGui.DescendantAdded:Connect(checkAndHideGui)
 
---Interfaz de Usuario (Agora focada em Brawls)
+--Interfaz de Usuario
 if playerGui:FindFirstChild("ApexBrawlGUI") then
     playerGui["ApexBrawlGUI"]:Destroy()
 end
@@ -94,7 +93,7 @@ local title = Instance.new("TextLabel")
 title.Size = UDim2.new(0, 110, 0, 25)
 title.Position = UDim2.new(0, 10, 0, 8)
 title.BackgroundTransparency = 1
-title.Text = "Apex Brawl Hop"
+title.Text = "Apex Brawl Hop" -- O Título agora é estático e nunca muda
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextSize = 16
 title.Font = Enum.Font.GothamBold
@@ -142,7 +141,7 @@ brawlsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 brawlsLabel.TextSize = 22
 brawlsLabel.Font = Enum.Font.GothamBold
 brawlsLabel.TextXAlignment = Enum.TextXAlignment.Left
-brawlsLabel.Text = "0 (0B)"
+brawlsLabel.Text = "0 (0.0K)"
 brawlsLabel.Parent = frame
 
 --Estadísticas y Cronómetro
@@ -155,8 +154,9 @@ local function updateBrawls()
     if leaderstats and leaderstats:FindFirstChild("Brawls") then
         local b = leaderstats.Brawls.Value
         local formattedExact = formatNumber(b)
-        local formattedB = string.format("%.1f", b / 1000)
-        brawlsLabel.Text = formattedExact .. " (" .. formattedB .. "B)"
+        local formattedK = string.format("%.1f", b / 1000)
+        -- Formatação idêntica a do script de Kill: ex. 1,000 (1.0K)
+        brawlsLabel.Text = formattedExact .. " (" .. formattedK .. "K)"
     end
 end
 updateBrawls()
@@ -201,23 +201,32 @@ local function applySize2()
     end
 end
 
---Sistema de Combate e Restrição de Alvos (Apenas no Brawl)
-local blockedAnimations = {
-    ["rbxassetid://3638729053"] = true,
-    ["rbxassetid://3638767427"] = true,
-}
-
-local function stopAnimations(humanoid)
-    for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
-        if track.Animation then
-            local animId = track.Animation.AnimationId
-            local animName = track.Name:lower()
-            if blockedAnimations[animId] or animName:match("punch") or animName:match("attack") or animName:match("right") then
-                track:Stop()
-            end
+-- Bloqueador de Animações de Soco
+local function setupAnimationBlocking()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local humanoid = char:WaitForChild("Humanoid", 5)
+    if humanoid then
+        local animator = humanoid:FindFirstChildOfClass("Animator")
+        if animator then
+            animator.AnimationPlayed:Connect(function(track)
+                if track.Animation then
+                    local animName = track.Name:lower()
+                    -- Cancela apenas animações de ataque, permitindo que você ande normal
+                    if animName:match("punch") or animName:match("attack") or animName:match("right") or animName:match("left") then
+                        track:Stop()
+                    end
+                end
+            end)
         end
     end
 end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
+    setupAnimationBlocking()
+end)
+if LocalPlayer.Character then setupAnimationBlocking() end
 
 local tickCounter = 0
 RunService.Heartbeat:Connect(function()
@@ -230,7 +239,6 @@ RunService.Heartbeat:Connect(function()
 
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-        stopAnimations(char.Humanoid)
         local punchInBackpack = LocalPlayer.Backpack:FindFirstChild("Punch")
         local punchInCharacter = char:FindFirstChild("Punch")
         
@@ -258,7 +266,7 @@ RunService.Heartbeat:Connect(function()
                     local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
                     local targetHumanoid = target.Character:FindFirstChild("Humanoid")
                     
-                    -- Condição crucial: Só ataca se o alvo estiver na mesma arena (raio de 150 studs)
+                    -- Ataca quem estiver na mesma arena (raio de 150 studs)
                     if targetRoot and targetHumanoid and targetHumanoid.Health > 0 then
                         local distance = (myRoot.Position - targetRoot.Position).Magnitude
                         if distance <= 150 then
@@ -289,9 +297,8 @@ task.spawn(function()
     end
 end)
 
---Lógica Dinâmica de Brawl e Server Hop (O Roteiro Principal)
+--Lógica Dinâmica de Brawl e Server Hop
 local function ExecuteRealServerHop()
-    title.Text = "Buscando Servidor..."
     local nextCursor = ""
     local serverFound = false
     while not serverFound do
@@ -302,13 +309,11 @@ local function ExecuteRealServerHop()
             local decoded = HttpService:JSONDecode(result)
             if decoded and decoded.data then
                 local list = decoded.data
-                -- Embaralha levemente para não cair sempre no mesmo
                 for i = #list, 2, -1 do
                     local j = math.random(i)
                     list[i], list[j] = list[j], list[i]
                 end
                 for _, server in ipairs(list) do
-                    -- Procura um servidor com BASTANTE gente (ex: acima de 15 jogadores) para farmar melhor
                     if server.id ~= game.JobId and server.playing and server.maxPlayers then
                         if server.playing < server.maxPlayers and server.playing >= 15 then
                             serverFound = true
@@ -323,11 +328,12 @@ local function ExecuteRealServerHop()
         else break end
         task.wait(1)
     end
-    -- Se falhar em achar um com +15, apenas pula de servidor normalmente
     if not serverFound then pcall(function() TS:Teleport(game.PlaceId, LocalPlayer) end) end
 end
 
--- Monitorador Dinâmico de Tempo
+-- Monitorador Dinâmico de Tempo e Loop de Entrada Fixo
+local lastJoinAttempt = 0
+
 task.spawn(function()
     local initialPosition = nil
 
@@ -336,32 +342,30 @@ task.spawn(function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         
         if root then
-            -- Registra a posição inicial do jogador no servidor
             if not initialPosition then
                 initialPosition = root.Position
             end
 
-            -- Entrar automaticamente no Brawl (Dispara o evento de join padrão se existir)
-            pcall(function()
-                local rEvents = ReplicatedStorage:FindFirstChild("rEvents")
-                if rEvents and rEvents:FindFirstChild("brawlEvent") then
-                    rEvents.brawlEvent:FireServer("joinBrawl")
-                end
-            end)
+            -- Loop de entrada consertado: Só tenta entrar a cada 15 segundos e apenas se NÃO estiver na arena.
+            if not isInBrawlArena and (os.clock() - lastJoinAttempt > 15) then
+                lastJoinAttempt = os.clock()
+                pcall(function()
+                    local rEvents = ReplicatedStorage:FindFirstChild("rEvents")
+                    if rEvents and rEvents:FindFirstChild("brawlEvent") then
+                        rEvents.brawlEvent:FireServer("joinBrawl")
+                    end
+                end)
+            end
 
-            -- Detectar se o jogador foi teleportado para a arena (Distância > 1000 do respawn)
             local distanceFromStart = (root.Position - initialPosition).Magnitude
 
             if distanceFromStart > 1000 then
                 if not isInBrawlArena then
                     isInBrawlArena = true
-                    title.Text = "Em Combate! (Brawl)"
                 end
             else
-                -- Se estava na arena e voltou para o inicio (Brawl acabou ou você ganhou)
                 if isInBrawlArena then
                     isInBrawlArena = false
-                    title.Text = "Brawl Concluído!"
                     
                     -- Espera 5 segundos exatos após a vitória antes do pulo
                     task.wait(5)
