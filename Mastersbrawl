@@ -1,28 +1,37 @@
---Variables Principales
+--Variables principales y servicios del juego
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local TS = game:GetService("TeleportService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
+local VirtualUser = game:GetService("VirtualUser")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
-local UserInputService = game:GetService("UserInputService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualUser = game:GetService("VirtualUser")
 local Settings = settings()
 
--- Estado Global do Brawl e Posição
-local isInBrawlArena = false
-local initialPosition = nil
-local secretPosition = CFrame.new(1950, 2, 6190)
+--Descarga de imagenes para la interfaz
+local links = {
+    ["Brawl.png"] = "https://i.ibb.co/PsyvG8fD/file-000000009f20820ea65920c0decedc78.png"
+}
 
---Anti AFK
+--Descargar imagen automaticamente si no existe
+for nombre, link in pairs(links) do
+    if not isfile(nombre) then
+        writefile(nombre, game:HttpGet(link))
+    end
+end
+
+--Cargar imagen para la GUI (CORRIGIDO: Agora aponta para Brawl.png)
+local imgBrawl = getcustomasset("Brawl.png")
+
+--Evitar desconexion por inactividad
 LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
---Optimización de Rendimiento
+--Limpiar texturas y materiales para reducir lag
 local function cleanPart(v)
     if v:IsA("BasePart") or v:IsA("MeshPart") or v:IsA("UnionOperation") then
         v.Material = Enum.Material.Plastic
@@ -35,6 +44,7 @@ local function cleanPart(v)
     end
 end
 
+--Aplicar configuraciones graficas minimas
 local function optimizePerformance()
     Settings.Rendering.QualityLevel = Enum.QualityLevel.Level01
     Lighting.GlobalShadows = false
@@ -45,10 +55,17 @@ local function optimizePerformance()
     if Lighting:FindFirstChild("Sky") then Lighting.Sky:Destroy() end
     for _, v in pairs(Workspace:GetDescendants()) do cleanPart(v) end
 end
+
+--Ejecutar optimizacion de rendimiento
 optimizePerformance()
+
+--Conectar funcion de limpieza a nuevas partes generadas
 Workspace.DescendantAdded:Connect(cleanPart)
 
+-- Definir ruta de la interfaz de usuario
 local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+--Comprobar y ocultar interfaces molestas del juego
 local function checkAndHideGui(gui)
     if gui:IsA("TextLabel") or gui:IsA("ImageLabel") or gui:IsA("Frame") then
         if gui.Name == "ApexBrawlGUI" or gui:IsDescendantOf(playerGui:FindFirstChild("ApexBrawlGUI")) then return end
@@ -65,27 +82,54 @@ local function checkAndHideGui(gui)
         end
     end
 end
+
+--Aplicar bloqueo de interfaces iniciales
 for _, g in pairs(playerGui:GetDescendants()) do checkAndHideGui(g) end
+
+--Aplicar bloqueo de interfaces a futuros elementos
 playerGui.DescendantAdded:Connect(checkAndHideGui)
 
---Interfaz de Usuario Estática
+--Eliminar interfaces previas si existen
 if playerGui:FindFirstChild("ApexBrawlGUI") then playerGui["ApexBrawlGUI"]:Destroy() end
 if playerGui:FindFirstChild("ApexKillGUI") then playerGui["ApexKillGUI"]:Destroy() end
 
+--Crear base principal de la interfaz
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ApexBrawlGUI"
 screenGui.ResetOnSpawn = false
 screenGui.AutoLocalize = false
 screenGui.Parent = playerGui
 
+--Crear marco principal
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 180, 0, 100)
 frame.Position = UDim2.new(0, 25, 0, 35)
-frame.BackgroundColor3 = Color3.fromRGB(45, 15, 85)
-frame.BorderSizePixel = 3
-frame.BorderColor3 = Color3.fromRGB(140, 60, 230)
+frame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+frame.BorderSizePixel = 0
+frame.ClipsDescendants = true
 frame.Parent = screenGui
 
+--Imagen de fondo (CORRIGIDO: Agora usa a variável imgBrawl)
+local imageLabel = Instance.new("ImageLabel")
+imageLabel.Size = UDim2.new(1, 0, 1, 0)
+imageLabel.Position = UDim2.new(0, 0, 0, 0)
+imageLabel.BackgroundTransparency = 1
+imageLabel.Image = imgBrawl
+imageLabel.ScaleType = Enum.ScaleType.Crop
+imageLabel.ZIndex = 1 -- Capa inferior
+imageLabel.Parent = frame
+
+--Aplicar aura arcoiris animada
+local rgbAura = Instance.new("UIStroke")
+rgbAura.Parent = frame
+rgbAura.Thickness = 4
+rgbAura.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+RunService.RenderStepped:Connect(function()
+    rgbAura.Color = Color3.fromHSV(tick() % 4 / 4, 1, 1)
+end)
+
+--Elementos de texto de la interfaz
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(0, 110, 0, 25)
 title.Position = UDim2.new(0, 10, 0, 8)
@@ -95,6 +139,7 @@ title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextSize = 16
 title.Font = Enum.Font.GothamBold
 title.TextXAlignment = Enum.TextXAlignment.Left
+title.ZIndex = 2 -- Capa superior
 title.Parent = frame
 
 local statsLabel = Instance.new("TextLabel")
@@ -106,6 +151,7 @@ statsLabel.TextColor3 = Color3.fromRGB(0, 225, 110)
 statsLabel.TextSize = 9
 statsLabel.Font = Enum.Font.SourceSansBold
 statsLabel.TextXAlignment = Enum.TextXAlignment.Right
+statsLabel.ZIndex = 2
 statsLabel.Parent = frame
 
 local subtitle = Instance.new("TextLabel")
@@ -113,10 +159,11 @@ subtitle.Size = UDim2.new(0, 100, 0, 15)
 subtitle.Position = UDim2.new(0, 10, 0, 38)
 subtitle.BackgroundTransparency = 1
 subtitle.Text = "Brawls:"
-subtitle.TextColor3 = Color3.fromRGB(155, 125, 185)
+subtitle.TextColor3 = Color3.fromRGB(180, 180, 180)
 subtitle.TextSize = 13
 subtitle.Font = Enum.Font.Gotham
 subtitle.TextXAlignment = Enum.TextXAlignment.Left
+subtitle.ZIndex = 2
 subtitle.Parent = frame
 
 local ChronoLabel = Instance.new("TextLabel")
@@ -126,8 +173,9 @@ ChronoLabel.BackgroundTransparency = 1
 ChronoLabel.Text = "00:00.00"
 ChronoLabel.Font = Enum.Font.SourceSans
 ChronoLabel.TextSize = 12
-ChronoLabel.TextColor3 = Color3.fromRGB(185, 185, 185)
+ChronoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 ChronoLabel.TextXAlignment = Enum.TextXAlignment.Right
+ChronoLabel.ZIndex = 2
 ChronoLabel.Parent = frame
 
 local brawlsLabel = Instance.new("TextLabel")
@@ -139,10 +187,20 @@ brawlsLabel.TextSize = 22
 brawlsLabel.Font = Enum.Font.GothamBold
 brawlsLabel.TextXAlignment = Enum.TextXAlignment.Left
 brawlsLabel.Text = "0 (0K)"
+brawlsLabel.ZIndex = 2
 brawlsLabel.Parent = frame
 
--- Server Hop Centralizado
-local function ExecuteRealServerHop()
+--Funcion para formatear numeros
+local function formatNumber(v)
+    return tostring(v):reverse():gsub("%d%d%d", "%1,"):reverse():gsub("^,", "")
+end
+
+--Variables de control de servidor
+local isHopping = false
+
+local function HopBugeado()
+    if isHopping then return end
+    isHopping = true
     local nextCursor = ""
     local serverFound = false
     while not serverFound do
@@ -159,7 +217,7 @@ local function ExecuteRealServerHop()
                 end
                 for _, server in ipairs(list) do
                     if server.id ~= game.JobId and server.playing and server.maxPlayers then
-                        if server.playing < server.maxPlayers and server.playing >= 15 then
+                        if server.playing < server.maxPlayers and server.playing >= 5 then
                             serverFound = true
                             pcall(function() TS:TeleportToPlaceInstance(game.PlaceId, server.id, LocalPlayer) end)
                             task.wait(2)
@@ -175,26 +233,17 @@ local function ExecuteRealServerHop()
     if not serverFound then pcall(function() TS:Teleport(game.PlaceId, LocalPlayer) end) end
 end
 
---Estadísticas e Formatação Especial (K e M)
-local function formatNumber(v)
-    return tostring(v):reverse():gsub("%d%d%d", "%1,"):reverse():gsub("^,", "")
-end
-
+--Actualizacion de datos de victorias
 local currentBrawls = 0
-
 local function updateBrawls()
     local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
     if leaderstats and leaderstats:FindFirstChild("Brawls") then
         local b = leaderstats.Brawls.Value
         local text = ""
-        
         if b >= 1000000 then
-            local kValue = math.floor(b / 1000)
-            local mValue = b / 1000000
-            text = formatNumber(kValue) .. "K (" .. string.format("%.2f", mValue) .. "M)"
+            text = formatNumber(math.floor(b / 1000)) .. "K (" .. string.format("%.2f", b / 1000000) .. "M)"
         elseif b >= 1000 then
-            local kValue = b / 1000
-            text = formatNumber(b) .. " (" .. string.format("%.1f", kValue) .. "K)"
+            text = formatNumber(b) .. " (" .. string.format("%.1f", b / 1000) .. "K)"
         else
             text = tostring(b) .. " (0K)"
         end
@@ -207,22 +256,22 @@ task.spawn(function()
     if leaderstats and leaderstats:FindFirstChild("Brawls") then
         currentBrawls = leaderstats.Brawls.Value
         updateBrawls()
-        
-        -- O ÚNICO GATILHO DE HOP DO SCRIPT: Subiu o valor = Ganhou = Espera 5 segundos exatos e pula!
         leaderstats.Brawls.Changed:Connect(function(newVal)
             updateBrawls()
             if newVal > currentBrawls then
                 currentBrawls = newVal
-                task.wait(5)
-                ExecuteRealServerHop()
+                task.wait(2)
+                HopBugeado()
             end
         end)
     end
 end)
 
+--Variables de rendimiento
 local cStart = os.clock()
 local lastUpdate = 0
 local frameCount = 0
+
 RunService.RenderStepped:Connect(function() frameCount = frameCount + 1 end)
 
 RunService.Heartbeat:Connect(function()
@@ -238,7 +287,26 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
---Funciones del Personaje
+--Logica de arena
+local initialPosition = nil
+local isInBrawlArena = false
+local arenaTime = 0
+local hadEnemies = false
+local secretPosition = CFrame.new(1949, 2, 6193)
+
+task.spawn(function()
+    while task.wait(1) do
+        if not isInBrawlArena then
+            pcall(function()
+                local rEvents = ReplicatedStorage:FindFirstChild("rEvents")
+                if rEvents and rEvents:FindFirstChild("brawlEvent") then
+                    rEvents.brawlEvent:FireServer("joinBrawl")
+                end
+            end)
+        end
+    end
+end)
+
 local function applySize2()
     local character = LocalPlayer.Character
     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -251,149 +319,94 @@ local function applySize2()
     end
 end
 
--- Bloqueador de Animações
-local function setupAnimationBlocking()
+RunService.Heartbeat:Connect(function(deltaTime)
     local char = LocalPlayer.Character
-    if not char then return end
-    local humanoid = char:WaitForChild("Humanoid", 5)
-    if humanoid then
-        local animator = humanoid:FindFirstChildOfClass("Animator")
-        if animator then
-            animator.AnimationPlayed:Connect(function(track)
-                if track.Animation then
-                    local animName = track.Name:lower()
-                    if animName:match("punch") or animName:match("attack") or animName:match("right") or animName:match("left") then
-                        track:Stop()
-                    end
-                end
-            end)
-        end
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    if not initialPosition and root.Position.Magnitude < 2000 then
+        initialPosition = root.Position
     end
-end
-
-LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(0.5)
-    setupAnimationBlocking()
-end)
-if LocalPlayer.Character then setupAnimationBlocking() end
-
--- SISTEMA DE CONGELAMENTO ABSOLUTO NA ÁREA SECRETA
-RunService.Heartbeat:Connect(function()
-    if isInBrawlArena then
-        local char = LocalPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if root then
-            root.Anchored = true
-            root.CFrame = secretPosition
-            root.Velocity = Vector3.zero
-            root.AssemblyLinearVelocity = Vector3.zero
-        end
-    end
-end)
-
--- Auto-Punch com Alcance Global (Apenas alvos no Brawl)
-local tickCounter = 0
-RunService.Heartbeat:Connect(function()
-    tickCounter = tickCounter + 1
-    if tickCounter % 3 ~= 0 then return end 
-    applySize2()
-    
-    if not isInBrawlArena then return end
-
-    local char = LocalPlayer.Character
-    if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-        local punchInBackpack = LocalPlayer.Backpack:FindFirstChild("Punch")
-        local punchInCharacter = char:FindFirstChild("Punch")
-        
-        if punchInBackpack then
-            punchInBackpack.Parent = char
-            if punchInBackpack:FindFirstChild("attackTime") then punchInBackpack.attackTime.Value = 0 end
-        end
-        if punchInCharacter then
-            if punchInCharacter:FindFirstChild("attackTime") then punchInCharacter.attackTime.Value = 0 end
-            punchInCharacter:Activate()
-        end
-        
-        local tool = char:FindFirstChildOfClass("Tool")
-        if tool and (tool.Name:lower():find("punch") or tool.Name:lower():find("attack")) then
-            pcall(function() tool:Activate() end)
-        end
-        
-        local rightHand = char:FindFirstChild("RightHand")
-        local leftHand = char:FindFirstChild("LeftHand")
-
-        if rightHand and leftHand and initialPosition then
-            for _, target in ipairs(Players:GetPlayers()) do
-                if target ~= LocalPlayer and target.Character then
-                    local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
-                    local targetHumanoid = target.Character:FindFirstChild("Humanoid")
-                    
-                    if targetRoot and targetHumanoid and targetHumanoid.Health > 0 then
-                        -- ALCANCE GLOBAL: Verifica se o inimigo está longe do lobby principal (ou seja, está na arena do Brawl)
-                        local targetDistFromSpawn = (targetRoot.Position - initialPosition).Magnitude
-                        if targetDistFromSpawn > 800 then
-                            pcall(function()
-                                firetouchinterest(rightHand, targetRoot, 1)
-                                firetouchinterest(leftHand, targetRoot, 1)
-                                firetouchinterest(rightHand, targetRoot, 0)
-                                firetouchinterest(leftHand, targetRoot, 0)
-                            end)
+    if initialPosition then
+        local dist = (root.Position - initialPosition).Magnitude
+        if dist > 800 then
+            if not isInBrawlArena then
+                isInBrawlArena = true
+                arenaTime = 0
+                hadEnemies = false
+            end
+            arenaTime = arenaTime + deltaTime
+            if not hadEnemies then
+                for _, target in ipairs(Players:GetPlayers()) do
+                    if target ~= LocalPlayer and target.Character then
+                        local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+                        if targetRoot and (targetRoot.Position - secretPosition.Position).Magnitude < 1500 then
+                            hadEnemies = true
                         end
                     end
                 end
             end
-        end
-    end
+            if arenaTime > 90 then HopBugeado() end
+            root.Velocity = Vector3.zero
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.CFrame = secretPosition
+            if char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                applySize2()
+                local tool = LocalPlayer.Backpack:FindFirstChild("Punch") or char:FindFirstChild("Punch")
+                if tool then
+                    tool.Parent = char
+                    if tool:FindFirstChild("attackTime") then tool.attackTime.Value = 0 end
+                    pcall(function() tool:Activate() end)
+                end
+                
+                -- A SUA PARTE MODIFICADA COMEÇA AQUI
+                local rightHand = char:FindFirstChild("RightHand")
+                local leftHand = char:FindFirstChild("LeftHand")
+                local punchTool = char:FindFirstChild("Punch")
+
+                if rightHand and leftHand and punchTool then
+                    for _, target in ipairs(Players:GetPlayers()) do
+                        if target ~= LocalPlayer and target.Character then
+                            local targetHumanoid = target.Character:FindFirstChildOfClass("Humanoid")
+                            local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+
+                            if targetHumanoid and targetRoot and targetHumanoid.Health > 0 then
+                                pcall(function()
+                                    if punchTool:IsDescendantOf(char) then
+                                        punchTool:Activate()
+                                    end
+
+                                    firetouchinterest(rightHand, targetRoot, 1)
+                                    firetouchinterest(leftHand, targetRoot, 1)
+                                    task.wait()
+                                    firetouchinterest(rightHand, targetRoot, 0)
+                                    firetouchinterest(leftHand, targetRoot, 0)
+                                end)
+                            end
+                        end
+                    end
+                end
+                -- A SUA PARTE MODIFICADA TERMINA AQUI
+                
+            end -- Faltava fechar o "if char:FindFirstChild("Humanoid")..."
+        end -- Faltava fechar o "if dist > 800 then"
+    end -- Faltava fechar o "if initialPosition then"
+end) -- Faltava fechar a função "RunService.Heartbeat:Connect"
+
+LocalPlayer.CharacterAdded:Connect(function()
+    isInBrawlArena = false
+    initialPosition = nil
+    arenaTime = 0
+    hadEnemies = false
 end)
 
---Roda da Fortuna
 _G.AutoSpinWheel = true
 task.spawn(function()
     while _G.AutoSpinWheel do
         local rEvents = ReplicatedStorage:FindFirstChild("rEvents")
         local remote = rEvents and rEvents:FindFirstChild("openFortuneWheelRemote")
         if remote and ReplicatedStorage:FindFirstChild("fortuneWheelChances") then
-            pcall(function() remote:InvokeServer("openFortuneWheel", ReplicatedStorage.fortuneWheelChances["Fortune Wheel"]) end)
+            remote:InvokeServer("openFortuneWheel", ReplicatedStorage.fortuneWheelChances["Fortune Wheel"])
         end
         task.wait(1) 
     end
-end)
-
--- Loop de Entrada e Ativação do Detector de Arena
-task.spawn(function()
-    while task.wait(1) do
-        local char = LocalPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        
-        if root then
-            -- Define o ponto base do servidor apenas uma vez (Lobby)
-            if not initialPosition and root.Position.Magnitude < 1000 then
-                initialPosition = root.Position
-            end
-
-            -- Fica clicando para entrar no Brawl continuamente até ser teleportado
-            if not isInBrawlArena then
-                pcall(function()
-                    local rEvents = ReplicatedStorage:FindFirstChild("rEvents")
-                    if rEvents and rEvents:FindFirstChild("brawlEvent") then
-                        rEvents.brawlEvent:FireServer("joinBrawl")
-                    end
-                end)
-
-                -- Se fomos jogados para longe do spawn inicial, o Brawl começou!
-                if initialPosition then
-                    local distanceFromStart = (root.Position - initialPosition).Magnitude
-                    if distanceFromStart > 800 then
-                        isInBrawlArena = true
-                    end
-                end
-            end
-        end
-    end
-end)
-
--- Anti-Stuck de segurança (Se o servidor bugar e o Brawl nunca começar, ele pula em 5 minutos)
-task.spawn(function()
-    task.wait(300)
-    ExecuteRealServerHop()
 end)
